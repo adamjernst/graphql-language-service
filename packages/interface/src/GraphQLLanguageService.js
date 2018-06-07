@@ -79,7 +79,7 @@ export class GraphQLLanguageService {
     const projectConfig = this._graphQLConfig.getConfigForFile(uri);
     const schemaPath = projectConfig.schemaPath;
     try {
-      const queryAST = parse(query);
+      const queryAST = parse(query, projectConfig.parseOptions);
       if (!schemaPath || uri !== schemaPath) {
         queryHasExtensions = queryAST.definitions.some(definition => {
           switch (definition.kind) {
@@ -121,6 +121,7 @@ export class GraphQLLanguageService {
     const fragmentDependencies = await this._graphQLCache.getFragmentDependencies(
       query,
       fragmentDefinitions,
+      projectConfig,
     );
     const dependenciesSource = fragmentDependencies.reduce(
       (prev, cur) => `${prev} ${print(cur.definition)}`,
@@ -131,7 +132,7 @@ export class GraphQLLanguageService {
 
     let validationAst = null;
     try {
-      validationAst = parse(source);
+      validationAst = parse(source, projectConfig.parseOptions);
     } catch (error) {
       // the query string is already checked to be parsed properly - errors
       // from this parse must be from corrupted fragment dependencies.
@@ -154,7 +155,7 @@ export class GraphQLLanguageService {
     }
 
     const schema = await this._graphQLCache
-      .getSchema(projectConfig.projectName, queryHasExtensions)
+      .getSchema(projectConfig, queryHasExtensions)
       .catch(() => null);
 
     if (!schema) {
@@ -171,7 +172,7 @@ export class GraphQLLanguageService {
   ): Promise<Array<CompletionItem>> {
     const projectConfig = this._graphQLConfig.getConfigForFile(filePath);
     const schema = await this._graphQLCache
-      .getSchema(projectConfig.projectName)
+      .getSchema(projectConfig)
       .catch(() => null);
 
     if (schema) {
@@ -187,7 +188,7 @@ export class GraphQLLanguageService {
   ): Promise<Hover.contents> {
     const projectConfig = this._graphQLConfig.getConfigForFile(filePath);
     const schema = await this._graphQLCache
-      .getSchema(projectConfig.projectName)
+      .getSchema(projectConfig)
       .catch(() => null);
 
     if (schema) {
@@ -205,7 +206,7 @@ export class GraphQLLanguageService {
 
     let ast;
     try {
-      ast = parse(query);
+      ast = parse(query, projectConfig.parseOptions);
     } catch (error) {
       return null;
     }

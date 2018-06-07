@@ -83,6 +83,7 @@ export class GraphQLCache implements GraphQLCacheInterface {
   getFragmentDependencies = async (
     query: string,
     fragmentDefinitions: ?Map<string, FragmentInfo>,
+    projectConfig: GraphQLProjectConfig,
   ): Promise<Array<FragmentInfo>> => {
     // If there isn't context for fragment references,
     // return an empty array.
@@ -93,7 +94,7 @@ export class GraphQLCache implements GraphQLCacheInterface {
     // Return an empty array.
     let parsedQuery;
     try {
-      parsedQuery = parse(query);
+      parsedQuery = parse(query, projectConfig.parseOptions);
     } catch (error) {
       return [];
     }
@@ -183,6 +184,7 @@ export class GraphQLCache implements GraphQLCacheInterface {
   getObjectTypeDependencies = async (
     query: string,
     objectTypeDefinitions: ?Map<string, ObjectTypeInfo>,
+    projectConfig: GraphQLProjectConfig,
   ): Promise<Array<ObjectTypeInfo>> => {
     // If there isn't context for object type references,
     // return an empty array.
@@ -193,7 +195,7 @@ export class GraphQLCache implements GraphQLCacheInterface {
     // Return an empty array.
     let parsedQuery;
     try {
-      parsedQuery = parse(query);
+      parsedQuery = parse(query, projectConfig.parseOptions);
     } catch (error) {
       return [];
     }
@@ -320,7 +322,7 @@ export class GraphQLCache implements GraphQLCacheInterface {
             return;
           }
 
-          const fileAndContent = await this.promiseToReadGraphQLFile(filePath);
+          const fileAndContent = await this.promiseToReadGraphQLFile(filePath, projectConfig);
           graphQLFileMap.set(filePath, {
             ...fileAndContent,
             size,
@@ -337,6 +339,7 @@ export class GraphQLCache implements GraphQLCacheInterface {
                 {size, mtime},
                 filePath,
                 exists,
+                projectConfig,
               ),
             );
           }
@@ -413,9 +416,10 @@ export class GraphQLCache implements GraphQLCacheInterface {
     metrics: {size: number, mtime: number},
     filePath: Uri,
     exists: boolean,
+    projectConfig: GraphQLProjectConfig,
   ): Promise<Map<Uri, GraphQLFileInfo>> {
     const fileAndContent = exists
-      ? await this.promiseToReadGraphQLFile(filePath)
+      ? await this.promiseToReadGraphQLFile(filePath, projectConfig)
       : null;
     const graphQLFileInfo = {...fileAndContent, ...metrics};
 
@@ -438,11 +442,12 @@ export class GraphQLCache implements GraphQLCacheInterface {
     rootDir: Uri,
     filePath: Uri,
     contents: Array<CachedContent>,
+    projectConfig: GraphQLProjectConfig,
   ): Promise<void> {
     const cache = this._fragmentDefinitionsCache.get(rootDir);
     const asts = contents.map(({query}) => {
       try {
-        return {ast: parse(query), query};
+        return {ast: parse(query, projectConfig.parseOptions), query};
       } catch (error) {
         return {ast: null, query};
       }
@@ -475,9 +480,10 @@ export class GraphQLCache implements GraphQLCacheInterface {
     rootDir: Uri,
     filePath: Uri,
     exists: boolean,
+    projectConfig: GraphQLProjectConfig,
   ): Promise<void> {
     const fileAndContent = exists
-      ? await this.promiseToReadGraphQLFile(filePath)
+      ? await this.promiseToReadGraphQLFile(filePath, projectConfig)
       : null;
     // In the case of fragment definitions, the cache could just map the
     // definition name to the parsed ast, whether or not it existed
@@ -489,7 +495,7 @@ export class GraphQLCache implements GraphQLCacheInterface {
         cache.delete(filePath);
       }
     } else if (fileAndContent && fileAndContent.queries) {
-      this.updateFragmentDefinition(rootDir, filePath, fileAndContent.queries);
+      this.updateFragmentDefinition(rootDir, filePath, fileAndContent.queries, projectConfig);
     }
   }
 
@@ -497,11 +503,12 @@ export class GraphQLCache implements GraphQLCacheInterface {
     rootDir: Uri,
     filePath: Uri,
     contents: Array<CachedContent>,
+    projectConfig: GraphQLProjectConfig,
   ): Promise<void> {
     const cache = this._typeDefinitionsCache.get(rootDir);
     const asts = contents.map(({query}) => {
       try {
-        return {ast: parse(query), query};
+        return {ast: parse(query, projectConfig.parseOptions), query};
       } catch (error) {
         return {ast: null, query};
       }
@@ -538,6 +545,7 @@ export class GraphQLCache implements GraphQLCacheInterface {
     rootDir: Uri,
     filePath: Uri,
     exists: boolean,
+    projectConfig: GraphQLProjectConfig,
   ): Promise<void> {
     const fileAndContent = exists
       ? await this.promiseToReadGraphQLFile(filePath)
@@ -623,16 +631,10 @@ export class GraphQLCache implements GraphQLCacheInterface {
   }
 
   getSchema = async (
-    appName: ?string,
+    projectConfig: GraphQLProjectConfig,
     queryHasExtensions?: ?boolean = false,
   ): Promise<?GraphQLSchema> => {
-    const projectConfig = this._graphQLConfig.getProjectConfig(appName);
-
-    if (!projectConfig) {
-      return null;
-    }
-
-    const projectName = appName || 'undefinedName';
+    const projectName = projectConfig.projectName || 'undefinedName';
     const schemaPath = projectConfig.schemaPath;
     const endpointInfo = this._getDefaultEndpoint(projectConfig);
 
@@ -678,7 +680,7 @@ export class GraphQLCache implements GraphQLCacheInterface {
     const customDirectives = projectConfig.extensions.customDirectives;
     if (customDirectives && schema) {
       const directivesSDL = customDirectives.join('\n\n');
-      schema = extendSchema(schema, parse(directivesSDL));
+      schema = extendSchema(schema, parse(directivesSDL, projectConfig.parseOptions));
     }
 
     if (!schema) {
@@ -826,6 +828,7 @@ export class GraphQLCache implements GraphQLCacheInterface {
    */
   promiseToReadGraphQLFile = (
     filePath: Uri,
+    projectConfig: GraphQLProjectConfig,
   ): Promise<{
     filePath: Uri,
     content: string,
@@ -850,7 +853,7 @@ export class GraphQLCache implements GraphQLCacheInterface {
               return;
             }
 
-            queries.forEach(({query}) => asts.push(parse(query)));
+            queries.forEach(({query}) => asts.push(parse(query, projectConfig.parseOptions)));
           } catch (_) {
             // If query has syntax errors, go ahead and still resolve
             // the filePath and the content, but leave ast empty.

@@ -87,6 +87,7 @@ export interface GraphQLCache {
   getObjectTypeDependencies: (
     query: string,
     fragmentDefinitions: ?Map<string, ObjectTypeInfo>,
+    projectConfig: GraphQLProjectConfig,
   ) => Promise<Array<ObjectTypeInfo>>;
 
   getObjectTypeDependenciesForAST: (
@@ -95,24 +96,27 @@ export interface GraphQLCache {
   ) => Promise<Array<ObjectTypeInfo>>;
 
   getObjectTypeDefinitions: (
-    graphQLConfig: GraphQLProjectConfig,
+    projectConfig: GraphQLProjectConfig,
   ) => Promise<Map<string, ObjectTypeInfo>>;
 
   +updateObjectTypeDefinition: (
     rootDir: Uri,
     filePath: Uri,
     contents: Array<CachedContent>,
+    projectConfig: GraphQLProjectConfig,
   ) => Promise<void>;
 
   +updateObjectTypeDefinitionCache: (
     rootDir: Uri,
     filePath: Uri,
     exists: boolean,
+    projectConfig: GraphQLProjectConfig,
   ) => Promise<void>;
 
   getFragmentDependencies: (
     query: string,
     fragmentDefinitions: ?Map<string, FragmentInfo>,
+    projectConfig: GraphQLProjectConfig,
   ) => Promise<Array<FragmentInfo>>;
 
   getFragmentDependenciesForAST: (
@@ -121,23 +125,25 @@ export interface GraphQLCache {
   ) => Promise<Array<FragmentInfo>>;
 
   getFragmentDefinitions: (
-    graphQLConfig: GraphQLProjectConfig,
+    projectConfig: GraphQLProjectConfig,
   ) => Promise<Map<string, FragmentInfo>>;
 
   +updateFragmentDefinition: (
     rootDir: Uri,
     filePath: Uri,
     contents: Array<CachedContent>,
+    projectConfig: GraphQLProjectConfig,
   ) => Promise<void>;
 
   +updateFragmentDefinitionCache: (
     rootDir: Uri,
     filePath: Uri,
     exists: boolean,
+    projectConfig: GraphQLProjectConfig,
   ) => Promise<void>;
 
   getSchema: (
-    appName: ?string,
+    projectConfig: GraphQLProjectConfig,
     queryHasExtensions?: ?boolean,
   ) => Promise<?GraphQLSchema>;
 
